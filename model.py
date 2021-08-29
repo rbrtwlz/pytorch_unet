@@ -28,7 +28,7 @@ class UNet(nn.Module):
                 return torch.cat([center_crop(stored_t,(h,w)), outp], dim=1)
         
     def contracting_path(self):
-        channels = self.chs[:-1] #[64,128,256,512]
+        channels = self.chs[:-1] #[1,64,128,256,512]
         return nn.Sequential(*[self.doubleconv_pool(in_c=c, out_c=channels[i+1]) for i,c in enumerate(channels[:-1])])
 
     def expansive_path(self):
