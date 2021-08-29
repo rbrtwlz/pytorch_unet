@@ -2,25 +2,25 @@ import torch
 import torch.nn as nn
 from torchvision.transforms.functional import center_crop
 
-
 class UNet(nn.Module):
-    def __init__(self, num_c=2, downsampling_channels=[64,128,256,512,1024]): 
+    def __init__(self, num_c=2, downsampling_channels=[1,64,128,256,512,1024]): 
         super().__init__()
         self.num_c, self.chs = num_c, downsampling_channels
         self.hook_cache = []
         self.contracting_net = self.contracting_path()
+        self.middle = self.doubleconv_upsample(self.chs[-2],self.chs[-1])
         self.expansive_net = self.expansive_path()
+        self.output_layer = self.double_conv(self.chs[2],self.chs[1], output_layer=True, store_outp=False)
         
     def forward(self, x):
-        x = self.doubleconv_pool(1, self.chs[0])(x)
+        #x = self.doubleconv_pool(1, self.chs[0])(x)
         x = self.contracting_net(x)
-        x = self.doubleconv_upsample(self.chs[-2],self.chs[-1])(x) 
+        x = self.middle(x) 
         x = self.expansive_net(x)
-        x = self.double_conv(self.chs[1],self.chs[0], store_outp=False)(x)
-        x = nn.Conv2d(self.chs[0],self.num_c, kernel_size=(1,1))(x)
-        return x
+        return self.output_layer(x)
     
     def hook_store(self, m, inp, outp):
+        print(outp.shape)
         self.hook_cache.append(outp)
         
     def hook_concat(self, m, inp, outp):
@@ -34,7 +34,7 @@ class UNet(nn.Module):
         return nn.Sequential(*[self.doubleconv_pool(in_c=c, out_c=channels[i+1]) for i,c in enumerate(channels[:-1])])
 
     def expansive_path(self):
-        channels = list(reversed(self.chs))[:-1] #[1024,512,256,128]
+        channels = list(reversed(self.chs))[:-2] #[1024,512,256,128]
         return nn.Sequential(*[self.doubleconv_upsample(in_c=c, out_c=channels[i+1]) for i,c in enumerate(channels[:-1])])
         
     def doubleconv_upsample(self, in_c, out_c, concat_outp=True):
@@ -45,8 +45,10 @@ class UNet(nn.Module):
     def doubleconv_pool(self, in_c, out_c):
         return nn.Sequential(*[self.double_conv(in_c, out_c), nn.MaxPool2d(kernel_size=(2,2))])
     
-    def double_conv(self, in_c, out_c, store_outp=True):
-        layers = nn.Sequential(*[nn.Conv2d(in_c, out_c, kernel_size=(3,3)), nn.ReLU(), 
-                                 nn.Conv2d(out_c, out_c, kernel_size=(3,3)), nn.ReLU()])
+    def double_conv(self, in_c, out_c, store_outp=True, output_layer=False):
+        layers = [nn.Conv2d(in_c, out_c, kernel_size=(3,3)), nn.ReLU(), 
+                  nn.Conv2d(out_c, out_c, kernel_size=(3,3)), nn.ReLU()]
+        if output_layer: layers += [nn.Conv2d(self.chs[1],self.num_c, kernel_size=(1,1))]
+        layers = nn.Sequential(*layers)
         if store_outp: layers.register_forward_hook(self.hook_store)  
         return layers
