@@ -13,6 +13,7 @@ class UNet(nn.Module):
         self.output_layer = self.doubleconv(self.chs[2],self.chs[1], output_layer=True, store_outp=False)
         
     def forward(self, x):
+        self.hook_cache = []
         x = self.contracting_net(x)
         x = self.middle(x) 
         x = self.expansive_net(x)
