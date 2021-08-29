@@ -10,7 +10,7 @@ class UNet(nn.Module):
         self.contracting_net = self.contracting_path()
         self.middle = self.doubleconv_upsample(self.chs[-2],self.chs[-1])
         self.expansive_net = self.expansive_path()
-        self.output_layer = self.double_conv(self.chs[2],self.chs[1], output_layer=True, store_outp=False)
+        self.output_layer = self.doubleconv(self.chs[2],self.chs[1], output_layer=True, store_outp=False)
         
     def forward(self, x):
         x = self.contracting_net(x)
@@ -36,14 +36,14 @@ class UNet(nn.Module):
         return nn.Sequential(*[self.doubleconv_upsample(in_c=c, out_c=channels[i+1]) for i,c in enumerate(channels[:-1])])
         
     def doubleconv_upsample(self, in_c, out_c, concat_outp=True):
-        layers = nn.Sequential(*[self.double_conv(in_c, out_c, store_outp=False), nn.ConvTranspose2d(out_c, out_c//2, kernel_size=(2,2), stride=2)])
+        layers = nn.Sequential(*[self.doubleconv(in_c, out_c, store_outp=False), nn.ConvTranspose2d(out_c, out_c//2, kernel_size=(2,2), stride=2)])
         if concat_outp: layers.register_forward_hook(self.hook_concat)
         return layers
         
     def doubleconv_pool(self, in_c, out_c):
-        return nn.Sequential(*[self.double_conv(in_c, out_c), nn.MaxPool2d(kernel_size=(2,2))])
+        return nn.Sequential(*[self.doubleconv(in_c, out_c), nn.MaxPool2d(kernel_size=(2,2))])
     
-    def double_conv(self, in_c, out_c, store_outp=True, output_layer=False):
+    def doubleconv(self, in_c, out_c, store_outp=True, output_layer=False):
         layers = [nn.Conv2d(in_c, out_c, kernel_size=(3,3)), nn.ReLU(), 
                   nn.Conv2d(out_c, out_c, kernel_size=(3,3)), nn.ReLU()]
         if output_layer: layers += [nn.Conv2d(self.chs[1],self.num_c, kernel_size=(1,1))]
