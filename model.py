@@ -20,7 +20,6 @@ class UNet(nn.Module):
         return self.output_layer(x)
     
     def hook_store(self, m, inp, outp):
-        print(outp.shape)
         self.hook_cache.append(outp)
         
     def hook_concat(self, m, inp, outp):
